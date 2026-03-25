@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amazon Listing to Excel Converter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    animation: {
+                        'gradient-x': 'gradient-x 15s ease infinite',
+                    },
+                    keyframes: {
+                        'gradient-x': {
+                            '0%, 100%': {
+                                'background-size': '200% 200%',
+                                'background-position': 'left center'
+                            },
+                            '50%': {
+                                'background-size': '200% 200%',
+                                'background-position': 'right center'
+                            },
+                        },
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gradient-to-br from-indigo-50 via-white to-cyan-50 animate-gradient-x min-h-screen flex items-center justify-center p-6 font-sans text-gray-800 antialiased selection:bg-indigo-200 selection:text-indigo-900">
+
+    <div class="bg-white/70 backdrop-blur-xl rounded-3xl shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] p-8 sm:p-10 max-w-2xl w-full border border-white/50 relative overflow-hidden">
+        
+        <div class="absolute -top-24 -right-24 w-48 h-48 bg-indigo-400/20 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-24 -left-24 w-48 h-48 bg-cyan-400/20 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="relative z-10">
+            <div class="text-center mb-10">
+                <h1 class="text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 mb-3 tracking-tight">
+                    Listing to Excel Converter
+                </h1>
+                <p class="text-gray-500 text-sm font-medium">Merge Amazon .txt exports into one Multi-Tab .xlsx file</p>
+            </div>
+
+            <div class="space-y-8">
+                <div>
+                    <div id="dropZone" onclick="document.getElementById('fileInput').click()" class="group relative flex flex-col items-center justify-center px-6 pt-10 pb-12 border-2 border-indigo-100 border-dashed rounded-2xl transition-all duration-300 bg-white/50 hover:bg-indigo-50/50 hover:border-indigo-400 hover:shadow-[0_0_30px_rgba(99,102,241,0.1)] cursor-pointer overflow-hidden">
+                        <div class="space-y-2 text-center relative z-10 pointer-events-none">
+                            <div class="bg-indigo-100/50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 group-hover:bg-indigo-100 transition-all duration-300">
+                                <svg class="h-8 w-8 text-indigo-500" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </div>
+                            <div class="flex text-sm text-gray-600 justify-center items-baseline gap-1">
+                                <span class="relative font-bold text-indigo-600 group-hover:text-indigo-500 transition-colors pointer-events-auto">
+                                    Click to select
+                                </span>
+                                <span>or drag and drop</span>
+                            </div>
+                            <p class="text-xs text-gray-400 font-medium">Bulk .txt files perfectly supported</p>
+                        </div>
+                    </div>
+                    <input id="fileInput" type="file" class="hidden" accept=".txt" multiple>
+                </div>
+
+                <div id="fileListContainer" class="hidden space-y-4">
+                    <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider pl-1">Selected Files (Tabs)</h3>
+                    <div id="fileList" class="space-y-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+                        </div>
+                </div>
+
+                <button id="convertBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-4 px-6 rounded-xl shadow-[0_10px_20px_-10px_rgba(79,70,229,0.5)] hover:shadow-[0_15px_25px_-10px_rgba(79,70,229,0.6)] transform hover:-translate-y-0.5 transition-all duration-200 flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none disabled:hover:from-blue-600 disabled:hover:to-indigo-600" disabled>
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    Combine into Single .xlsx
+                </button>
+                
+                <div id="statusLog" class="text-sm text-center font-bold h-4 text-emerald-500 drop-shadow-sm"></div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* Custom nice scrollbar for the file list */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+        }
+    </style>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+        const fileListContainer = document.getElementById('fileListContainer');
+        const fileList = document.getElementById('fileList');
+        const convertBtn = document.getElementById('convertBtn');
+        const statusLog = document.getElementById('statusLog');
+
+        let selectedFiles = [];
+
+        // Exact Master Layout Template
+        const masterColumnLayout = [
+            "seller-sku", "asin1", "item-name", "item-description", "listing-id",
+            "price", "quantity", "open-date", "product-id-type", "item-note",
+            "item-condition", "will-ship-internationally", "expedited-shipping",
+            "product-id", "pending-quantity", "fulfillment-channel", "business price",
+            "status", "minimum-seller-allowed-price", "maximum-seller-allowed-price"
+        ];
+
+        // --- UI UPDATES ---
+        function renderFileList() {
+            fileList.innerHTML = ''; 
+            
+            if (selectedFiles.length === 0) {
+                fileListContainer.classList.add('hidden');
+                convertBtn.disabled = true;
+                return;
+            }
+
+            fileListContainer.classList.remove('hidden');
+            convertBtn.disabled = false;
+
+            selectedFiles.forEach((fileObj, index) => {
+                const item = document.createElement('div');
+                item.className = "group flex items-center gap-4 bg-white p-3.5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-indigo-100 transition-all duration-200";
+                
+                item.innerHTML = `
+                    <div class="flex items-center gap-3 flex-1 min-w-0">
+                        <div class="p-2 bg-indigo-50 rounded-lg text-indigo-500">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"></path></svg>
+                        </div>
+                        <div class="truncate text-sm text-gray-700 font-semibold" title="${fileObj.file.name}">
+                            ${fileObj.file.name}
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <input type="text" id="brand-${index}" value="${fileObj.brand}" placeholder="Brand / Tab Name" 
+                            oninput="updateBrandState(${index}, this.value)"
+                            class="w-full px-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none transition-all placeholder-gray-400 font-medium" required>
+                    </div>
+                    <button onclick="removeFile(${index})" class="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors focus:outline-none" title="Remove file">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button>
+                `;
+                fileList.appendChild(item);
+            });
+        }
+
+        window.updateBrandState = function(index, newValue) {
+            selectedFiles[index].brand = newValue;
+            const input = document.getElementById(`brand-${index}`);
+            if(newValue.trim() !== '') {
+                input.classList.remove('ring-2', 'ring-red-400', 'border-red-400');
+            }
+        }
+
+        window.removeFile = function(index) {
+            selectedFiles.splice(index, 1);
+            renderFileList();
+        };
+
+        // --- AUTO EXTRACTION LOGIC ---
+        async function handleFiles(files) {
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                let extractedBrand = '';
+                
+                try {
+                    const text = await file.text();
+                    const lines = text.split(/\r?\n/);
+                    
+                    let nameColIndex = -1;
+                    let dataStartRow = -1;
+                    
+                    for (let row = 0; row < Math.min(lines.length, 5); row++) {
+                        const columns = lines[row].split('\t').map(col => col.toLowerCase().trim());
+                        nameColIndex = columns.findIndex(col => 
+                            col.includes('item-name') || col.includes('item name') || col.includes('product name') || col === 'title'
+                        );
+                        
+                        if (nameColIndex !== -1) {
+                            dataStartRow = row + 1; 
+                            break;
+                        }
+                    }
+                    
+                    if (nameColIndex !== -1 && dataStartRow < lines.length) {
+                        for (let row = dataStartRow; row < lines.length; row++) {
+                            const dataCols = lines[row].split('\t');
+                            if (dataCols.length > nameColIndex && dataCols[nameColIndex].trim() !== '') {
+                                const fullItemName = dataCols[nameColIndex].trim();
+                                extractedBrand = fullItemName.split(/\s+/)[0];
+                                extractedBrand = extractedBrand.replace(/[^a-zA-Z0-9-]/g, ''); 
+                                break;
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error("Error auto-extracting brand:", file.name, error);
+                }
+                
+                selectedFiles.push({ file: file, brand: extractedBrand });
+            }
+            
+            renderFileList();
+            statusLog.textContent = '';
+        }
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+            fileInput.value = ''; 
+        });
+
+        // --- PURE JS DRAG AND DROP HANDLING (FIX FOR MULTIPLE FILES) ---
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.add('border-indigo-400', 'bg-indigo-50/80', 'scale-[1.02]');
+        });
+
+        dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove('border-indigo-400', 'bg-indigo-50/80', 'scale-[1.02]');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove('border-indigo-400', 'bg-indigo-50/80', 'scale-[1.02]');
+            
+            // Capture all dropped files seamlessly
+            if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+                handleFiles(e.dataTransfer.files);
+            }
+        });
+
+        // --- CONVERSION LOGIC & COLUMN FIXING ---
+        function getFormattedTime() {
+            // Converts to Eastern Standard Time (EST) regardless of local machine settings
+            const now = new Date();
+            const estDate = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
+            
+            let hours = estDate.getHours();
+            let minutes = estDate.getMinutes();
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            
+            hours = hours % 12;
+            hours = hours ? hours : 12; 
+            const hoursStr = hours < 10 ? '0' + hours : hours;
+            const minutesStr = minutes < 10 ? '0' + minutes : minutes;
+            
+            return `${hoursStr}${minutesStr} ${ampm} EST`;
+        }
+
+        convertBtn.addEventListener('click', async () => {
+            // Validation
+            let allFilled = true;
+            for (let i = 0; i < selectedFiles.length; i++) {
+                const input = document.getElementById(`brand-${i}`);
+                if (!input.value.trim()) {
+                    input.classList.add('ring-2', 'ring-red-400', 'border-red-400'); 
+                    allFilled = false;
+                }
+            }
+
+            if (!allFilled) {
+                convertBtn.classList.add('animate-[shake_0.5s_ease-in-out]');
+                setTimeout(() => convertBtn.classList.remove('animate-[shake_0.5s_ease-in-out]'), 500);
+                return;
+            }
+
+            const originalBtnHTML = convertBtn.innerHTML;
+            
+            // Loading state
+            convertBtn.innerHTML = `
+                <svg class="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                Processing Files...
+            `;
+            convertBtn.disabled = true;
+            
+            let masterSkuCount = 0; // Tracks total SKUs across all files
+
+            try {
+                // ONE WORKBOOK CREATED OUTSIDE THE LOOP
+                const workbook = new ExcelJS.Workbook();
+
+                for (let i = 0; i < selectedFiles.length; i++) {
+                    const fileObj = selectedFiles[i];
+                    const file = fileObj.file;
+                    const brandName = document.getElementById(`brand-${i}`).value.trim();
+                    
+                    // Format Tab Name safely for Excel rules
+                    let safeTabName = brandName.replace(/[\\/*?:\[\]]/g, '').substring(0, 31);
+                    if (!safeTabName) safeTabName = `Tab_${i+1}`;
+                    
+                    let tabBase = safeTabName;
+                    let counter = 1;
+                    while(workbook.getWorksheet(safeTabName)) {
+                        safeTabName = `${tabBase.substring(0, 27)}_${counter}`;
+                        counter++;
+                    }
+
+                    // ADD NEW TAB FOR EACH FILE
+                    const worksheet = workbook.addWorksheet(safeTabName);
+
+                    const text = await file.text();
+                    const lines = text.split(/\r?\n/);
+                    let isHeaderFound = false;
+                    let headerMapping = []; 
+                    let skuOriginalIndex = -1;
+
+                    lines.forEach(line => {
+                        if (line.trim() !== "") {
+                            const rowData = line.split('\t');
+
+                            if (!isHeaderFound) {
+                                const lowerLine = line.toLowerCase();
+                                if (lowerLine.includes('item-name') || lowerLine.includes('seller-sku')) {
+                                    isHeaderFound = true;
+                                    const originalHeaders = rowData;
+
+                                    // Find original index of the SKU column
+                                    skuOriginalIndex = originalHeaders.findIndex(h => h.trim().toLowerCase() === 'seller-sku');
+
+                                    const sortedHeaders = [...originalHeaders].sort((a, b) => {
+                                        let indexA = masterColumnLayout.indexOf(a.trim().toLowerCase());
+                                        let indexB = masterColumnLayout.indexOf(b.trim().toLowerCase());
+                                        if (indexA === -1) indexA = 999; 
+                                        if (indexB === -1) indexB = 999;
+                                        return indexA - indexB;
+                                    });
+
+                                    headerMapping = sortedHeaders.map(header => originalHeaders.indexOf(header));
+
+                                    const row = worksheet.addRow(sortedHeaders);
+                                    row.eachCell(cell => { 
+                                        cell.font = { name: 'Calibri', size: 11 }; // User's requested un-bolded header
+                                    });
+                                }
+                            } else {
+                                // ONLY trim the SKU if the column exists
+                                if (skuOriginalIndex !== -1 && rowData[skuOriginalIndex] !== undefined) {
+                                    rowData[skuOriginalIndex] = rowData[skuOriginalIndex].trim();
+                                    
+                                    if (rowData[skuOriginalIndex] !== "") {
+                                        masterSkuCount++; // Add to total SKU count
+                                    }
+                                }
+
+                                const reorderedData = headerMapping.map(oldIndex => {
+                                    let val = rowData[oldIndex] !== undefined ? rowData[oldIndex] : "";
+                                    
+                                    // Make numbers remain as numbers in Excel
+                                    if (val.trim() !== "" && !isNaN(val)) {
+                                        // Prevent parsing strings with leading zeros (like UPCs) into numbers
+                                        if (!/^0\d+/.test(val)) {
+                                            return Number(val);
+                                        }
+                                    }
+                                    return val;
+                                });
+
+                                const row = worksheet.addRow(reorderedData);
+                                row.eachCell(cell => { 
+                                    cell.font = { name: 'Calibri', size: 11 }; 
+                                    // Force text format for all non-number strings
+                                    if (typeof cell.value === 'string') {
+                                        cell.numFmt = '@';
+                                    }
+                                });
+                            }
+                        }
+                    });
+                }
+
+                // MOVED DOWNLOAD LOGIC OUTSIDE THE LOOP
+                const timeString = getFormattedTime();
+                const newFileName = `Combined Listings ${timeString} - ${masterSkuCount} SKUs.xlsx`;
+
+                const buffer = await workbook.xlsx.writeBuffer();
+                const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = newFileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                // Restore state
+                convertBtn.innerHTML = originalBtnHTML;
+                convertBtn.disabled = false;
+                statusLog.innerHTML = `🎉 Successfully merged ${selectedFiles.length} file(s) into 1 workbook!`;
+                
+                setTimeout(() => { statusLog.innerHTML = ''; }, 6000);
+
+            } catch (error) {
+                console.error("Error processing files:", error);
+                convertBtn.innerHTML = originalBtnHTML;
+                convertBtn.disabled = false;
+                alert("An error occurred while building the Excel file. Please check the console.");
+            }
+        });
+    </script>
+</body>
+</html>
