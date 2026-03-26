@@ -15,14 +15,8 @@
                     },
                     keyframes: {
                         'gradient-x': {
-                            '0%, 100%': {
-                                'background-size': '200% 200%',
-                                'background-position': 'left center'
-                            },
-                            '50%': {
-                                'background-size': '200% 200%',
-                                'background-position': 'right center'
-                            },
+                            '0%, 100%': { 'background-size': '200% 200%', 'background-position': 'left center' },
+                            '50%': { 'background-size': '200% 200%', 'background-position': 'right center' },
                         },
                     }
                 }
@@ -69,7 +63,7 @@
                 <div id="fileListContainer" class="hidden space-y-4">
                     <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider pl-1">Selected Files (Tabs)</h3>
                     <div id="fileList" class="space-y-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
-                        </div>
+                    </div>
                 </div>
 
                 <button id="convertBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-4 px-6 rounded-xl shadow-[0_10px_20px_-10px_rgba(79,70,229,0.5)] hover:shadow-[0_15px_25px_-10px_rgba(79,70,229,0.6)] transform hover:-translate-y-0.5 transition-all duration-200 flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none disabled:hover:from-blue-600 disabled:hover:to-indigo-600" disabled>
@@ -83,21 +77,10 @@
     </div>
 
     <style>
-        /* Custom nice scrollbar for the file list */
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: #f1f5f9;
-            border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
-        }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         @keyframes shake {
             0%, 100% { transform: translateX(0); }
             25% { transform: translateX(-5px); }
@@ -179,8 +162,11 @@
 
         // --- AUTO EXTRACTION LOGIC ---
         async function handleFiles(files) {
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
+            // THE FIX: Take a synchronous snapshot of the files list before the browser can empty the DataTransfer buffer.
+            const filesArray = Array.from(files);
+
+            for (let i = 0; i < filesArray.length; i++) {
+                const file = filesArray[i];
                 let extractedBrand = '';
                 
                 try {
@@ -229,7 +215,13 @@
             fileInput.value = ''; 
         });
 
-        // --- PURE JS DRAG AND DROP HANDLING (FIX FOR MULTIPLE FILES) ---
+        // --- DRAG AND DROP HANDLING ---
+        dropZone.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.add('border-indigo-400', 'bg-indigo-50/80', 'scale-[1.02]');
+        });
+
         dropZone.addEventListener('dragover', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -247,7 +239,6 @@
             e.stopPropagation();
             dropZone.classList.remove('border-indigo-400', 'bg-indigo-50/80', 'scale-[1.02]');
             
-            // Capture all dropped files seamlessly
             if (e.dataTransfer && e.dataTransfer.files.length > 0) {
                 handleFiles(e.dataTransfer.files);
             }
@@ -255,7 +246,6 @@
 
         // --- CONVERSION LOGIC & COLUMN FIXING ---
         function getFormattedTime() {
-            // Converts to Eastern Standard Time (EST) regardless of local machine settings
             const now = new Date();
             const estDate = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
             
@@ -272,7 +262,6 @@
         }
 
         convertBtn.addEventListener('click', async () => {
-            // Validation
             let allFilled = true;
             for (let i = 0; i < selectedFiles.length; i++) {
                 const input = document.getElementById(`brand-${i}`);
@@ -290,17 +279,15 @@
 
             const originalBtnHTML = convertBtn.innerHTML;
             
-            // Loading state
             convertBtn.innerHTML = `
                 <svg class="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                 Processing Files...
             `;
             convertBtn.disabled = true;
             
-            let masterSkuCount = 0; // Tracks total SKUs across all files
+            let masterSkuCount = 0;
 
             try {
-                // ONE WORKBOOK CREATED OUTSIDE THE LOOP
                 const workbook = new ExcelJS.Workbook();
 
                 for (let i = 0; i < selectedFiles.length; i++) {
@@ -308,7 +295,6 @@
                     const file = fileObj.file;
                     const brandName = document.getElementById(`brand-${i}`).value.trim();
                     
-                    // Format Tab Name safely for Excel rules
                     let safeTabName = brandName.replace(/[\\/*?:\[\]]/g, '').substring(0, 31);
                     if (!safeTabName) safeTabName = `Tab_${i+1}`;
                     
@@ -319,18 +305,18 @@
                         counter++;
                     }
 
-                    // ADD NEW TAB FOR EACH FILE
                     const worksheet = workbook.addWorksheet(safeTabName);
 
                     const text = await file.text();
                     const lines = text.split(/\r?\n/);
+                    
                     let isHeaderFound = false;
                     let headerMapping = []; 
                     let skuOriginalIndex = -1;
 
                     lines.forEach(line => {
                         if (line.trim() !== "") {
-                            const rowData = line.split('\t');
+                            const rowData = line.split('\t').map(col => col.replace(/^"|"$/g, '').trim());
 
                             if (!isHeaderFound) {
                                 const lowerLine = line.toLowerCase();
@@ -338,12 +324,11 @@
                                     isHeaderFound = true;
                                     const originalHeaders = rowData;
 
-                                    // Find original index of the SKU column
-                                    skuOriginalIndex = originalHeaders.findIndex(h => h.trim().toLowerCase() === 'seller-sku');
+                                    skuOriginalIndex = originalHeaders.findIndex(h => h.toLowerCase() === 'seller-sku');
 
                                     const sortedHeaders = [...originalHeaders].sort((a, b) => {
-                                        let indexA = masterColumnLayout.indexOf(a.trim().toLowerCase());
-                                        let indexB = masterColumnLayout.indexOf(b.trim().toLowerCase());
+                                        let indexA = masterColumnLayout.indexOf(a.toLowerCase());
+                                        let indexB = masterColumnLayout.indexOf(b.toLowerCase());
                                         if (indexA === -1) indexA = 999; 
                                         if (indexB === -1) indexB = 999;
                                         return indexA - indexB;
@@ -353,25 +338,24 @@
 
                                     const row = worksheet.addRow(sortedHeaders);
                                     row.eachCell(cell => { 
-                                        cell.font = { name: 'Calibri', size: 11 }; // User's requested un-bolded header
+                                        cell.font = { name: 'Calibri', size: 11 }; 
                                     });
                                 }
                             } else {
-                                // ONLY trim the SKU if the column exists
-                                if (skuOriginalIndex !== -1 && rowData[skuOriginalIndex] !== undefined) {
-                                    rowData[skuOriginalIndex] = rowData[skuOriginalIndex].trim();
-                                    
-                                    if (rowData[skuOriginalIndex] !== "") {
-                                        masterSkuCount++; // Add to total SKU count
-                                    }
+                                if (skuOriginalIndex !== -1 && rowData[skuOriginalIndex] !== undefined && rowData[skuOriginalIndex] !== "") {
+                                    masterSkuCount++; 
                                 }
 
-                                const reorderedData = headerMapping.map(oldIndex => {
+                                const reorderedData = headerMapping.map((oldIndex, newIndex) => {
                                     let val = rowData[oldIndex] !== undefined ? rowData[oldIndex] : "";
+                                    let colName = masterColumnLayout[newIndex];
+
+                                    // Force Identifiers to ALWAYS be strings so Excel trims and formats them as Text
+                                    if (colName === 'seller-sku' || colName === 'asin1' || colName === 'product-id' || colName === 'listing-id') {
+                                        return String(val);
+                                    }
                                     
-                                    // Make numbers remain as numbers in Excel
-                                    if (val.trim() !== "" && !isNaN(val)) {
-                                        // Prevent parsing strings with leading zeros (like UPCs) into numbers
+                                    if (val !== "" && !isNaN(val)) {
                                         if (!/^0\d+/.test(val)) {
                                             return Number(val);
                                         }
@@ -382,9 +366,9 @@
                                 const row = worksheet.addRow(reorderedData);
                                 row.eachCell(cell => { 
                                     cell.font = { name: 'Calibri', size: 11 }; 
-                                    // Force text format for all non-number strings
+                                    
                                     if (typeof cell.value === 'string') {
-                                        cell.numFmt = '@';
+                                        cell.numFmt = '@'; 
                                     }
                                 });
                             }
@@ -392,7 +376,6 @@
                     });
                 }
 
-                // MOVED DOWNLOAD LOGIC OUTSIDE THE LOOP
                 const timeString = getFormattedTime();
                 const newFileName = `Combined Listings ${timeString} - ${masterSkuCount} SKUs.xlsx`;
 
@@ -408,7 +391,6 @@
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
                 
-                // Restore state
                 convertBtn.innerHTML = originalBtnHTML;
                 convertBtn.disabled = false;
                 statusLog.innerHTML = `🎉 Successfully merged ${selectedFiles.length} file(s) into 1 workbook!`;
